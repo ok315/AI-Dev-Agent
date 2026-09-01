@@ -62,7 +62,7 @@ def store_chunks(chunks: List[Dict], repo_name: str) -> int:
         # in different files (or different repos) doesn't collide
         ids.append(f"{repo_name}::{chunk['file_path']}::{chunk['name']}")
     
-    collection.add(
+    collection.upsert(
         documents=documents,
         metadatas=metadatas,
         ids=ids
