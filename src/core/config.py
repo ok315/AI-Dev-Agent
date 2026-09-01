@@ -11,7 +11,7 @@ class Config:
     GITHUB_API_BASE: str = "https://api.github.com"
     
     # The model we'll use for all LLM calls
-    LLM_MODEL: str = "llama-3.3-70b-versatile"
+    LLM_MODEL: str = "openai/gpt-oss-120b"
     
     # Safety limits
     MAX_DEBUG_ITERATIONS: int = 3    # max times the debug loop can retry
