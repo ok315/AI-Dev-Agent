@@ -23,7 +23,7 @@ def run_code_in_sandbox(files: dict, entry_point: str, timeout_seconds: int = 15
         # import each other when the container runs.
         for filename, content in files.items():
             file_path = os.path.join(temp_dir, filename)
-            with open(file_path, "w") as f:
+            with open(file_path, "w", encoding="utf-8") as f:
                 f.write(content)
         
         docker_command = [
