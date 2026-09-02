@@ -45,12 +45,19 @@ def run_code_in_sandbox(files: dict, entry_point: str, timeout_seconds: int = 15
                 text=True,
                 timeout=timeout_seconds
             )
-            
+            # Distinguish "Docker itself failed to run" from "the code/test genuinely failed"
+            infrastructure_error = "docker" in result.stderr.lower() and (
+                "cannot find" in result.stderr.lower() or
+                "daemon is running" in result.stderr.lower() or
+                "unable to start" in result.stderr.lower()
+            )
+
             return {
                 "success": result.returncode == 0,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "timed_out": False
+                "timed_out": False,
+                "infrastructure_error": infrastructure_error
             }
         
         except subprocess.TimeoutExpired:

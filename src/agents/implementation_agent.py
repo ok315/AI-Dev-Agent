@@ -25,22 +25,18 @@ the JSON object. The "updated_code" value must be the full file, ready
 to replace the original file exactly as-is."""
 
 
-def generate_implementation(plan: dict, owner: str, repo: str, branch: str) -> dict:
+def generate_implementation(
+    plan: dict, owner: str, repo: str, branch: str,
+    previous_code: str = None, test_code: str = None, failure_output: str = None
+) -> dict:
     """
-    Takes a plan (from generate_plan) and produces actual corrected
-    code for the first affected file.
+    Same as before, but now optionally accepts context from a
+    PREVIOUS FAILED ATTEMPT — the code that didn't work, the test
+    that caught the failure, and what error/output the test produced.
     
-    Fetches the REAL, full, current file from GitHub — not the
-    isolated chunk from ChromaDB — so the LLM has complete context
-    and won't accidentally destroy unrelated code in the file.
-    
-    Returns:
-        {
-            "file_path": which file was modified,
-            "original_code": the file's content before changes,
-            "updated_code": the LLM's proposed corrected file,
-            "explanation": what changed and why
-        }
+    When this context is provided, the LLM is explicitly told what
+    was tried and why it failed, so it can fix the SPECIFIC problem
+    instead of blindly generating a new attempt from scratch.
     """
     if not plan.get("files_likely_affected"):
         raise ValueError("Plan has no files_likely_affected — nothing to implement.")
@@ -54,6 +50,19 @@ def generate_implementation(plan: dict, owner: str, repo: str, branch: str) -> d
         f"Current content of {file_path}:\n"
         f"```python\n{original_code}\n```"
     )
+    
+    # If this is a retry, add the failure context so the LLM knows
+    # EXACTLY what was tried and what went wrong.
+    if previous_code and test_code and failure_output:
+        prompt += (
+            f"\n\nA PREVIOUS ATTEMPT at this fix FAILED. Here is what was tried:\n"
+            f"```python\n{previous_code}\n```\n\n"
+            f"The test that verifies this fix:\n"
+            f"```python\n{test_code}\n```\n\n"
+            f"The failure output was:\n{failure_output}\n\n"
+            f"Fix the SPECIFIC problem shown above. Pay close attention to exact "
+            f"expected values, strings, or behavior the test requires."
+        )
     
     raw_response = call_llm(
         prompt=prompt,
