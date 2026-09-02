@@ -3,51 +3,39 @@ import tempfile
 import os
 
 
-def run_code_in_sandbox(code: str, timeout_seconds: int = 15) -> dict:
+def run_code_in_sandbox(files: dict, entry_point: str, timeout_seconds: int = 15) -> dict:
     """
-    Runs a string of Python code inside an isolated Docker container
-    and returns what happened.
-    
-    Safety measures applied:
-      - No network access (--network none)
-      - Memory capped at 256MB (--memory 256m)
-      - CPU capped at half a core (--cpus 0.5)
-      - Killed automatically if it runs longer than timeout_seconds
-      - Container is auto-removed after running (--rm), so nothing lingers
+    Runs code inside an isolated Docker container. Supports multiple
+    files so a test file can import and check a separate solution file.
     
     Args:
-        code: the Python source code to execute, as a string
+        files: dict mapping filename -> file content, e.g.
+               {"solution.py": "...", "test_solution.py": "..."}
+        entry_point: which file to actually RUN (usually the test file,
+                     since it will import the solution file itself)
         timeout_seconds: max time allowed before we kill it
     
-    Returns:
-        {
-            "success": True/False — did it run without crashing,
-            "stdout": whatever the code printed,
-            "stderr": any error output,
-            "timed_out": True if we had to kill it for running too long
-        }
+    Returns: same result shape as before —
+        {"success": bool, "stdout": str, "stderr": str, "timed_out": bool}
     """
-    # Create a temporary folder on YOUR machine (not in the container yet)
-    # to hold the code file we're about to run.
     with tempfile.TemporaryDirectory() as temp_dir:
-        code_path = os.path.join(temp_dir, "solution.py")
+        # Write ALL files into the same temp folder, so they can
+        # import each other when the container runs.
+        for filename, content in files.items():
+            file_path = os.path.join(temp_dir, filename)
+            with open(file_path, "w") as f:
+                f.write(content)
         
-        with open(code_path, "w") as f:
-            f.write(code)
-        
-        # This builds the actual `docker run` command as a list of
-        # arguments — same as typing it in a terminal, but as a list
-        # so subprocess can run it directly without shell parsing issues.
         docker_command = [
             "docker", "run",
-            "--rm",                          # auto-delete container when done
-            "--network", "none",             # no internet access at all
-            "--memory", "256m",              # hard memory cap
-            "--cpus", "0.5",                 # hard CPU cap
-            "-v", f"{temp_dir}:/sandbox",     # mount our temp folder INTO the container at /sandbox
-            "-w", "/sandbox",                # set working directory inside container to /sandbox
-            "python:3.11-slim",              # the image to use
-            "python", "solution.py"          # the command to run INSIDE the container
+            "--rm",
+            "--network", "none",
+            "--memory", "256m",
+            "--cpus", "0.5",
+            "-v", f"{temp_dir}:/sandbox",
+            "-w", "/sandbox",
+            "python:3.11-slim",
+            "python", entry_point   # run whichever file we're told to
         ]
         
         try:
