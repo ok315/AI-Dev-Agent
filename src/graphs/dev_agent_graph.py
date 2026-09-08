@@ -7,6 +7,8 @@ from langgraph.graph import StateGraph, END
 from src.tools.github_client import github
 import time
 from langgraph.checkpoint.memory import MemorySaver
+from mcp import Client
+from src.mcp_servers.sandbox_server import mcp as sandbox_mcp
 
 class DevAgentState(TypedDict):
     issue_description: str
@@ -70,14 +72,22 @@ def test_gen_node(state: DevAgentState) -> dict:
     )
     return {"current_test": test["test_code"]}
 
-def run_test_node(state: DevAgentState) -> dict:
+async def run_test_node(state: DevAgentState) -> dict:
     print("RUNNING TEST IN SANDBOX...")
     
     files = {
         "solution.py": state["current_code"],
         "test_solution.py": state["current_test"]
     }
-    result = run_code_in_sandbox(files, entry_point="test_solution.py")
+    
+    async with Client(sandbox_mcp) as client:
+        mcp_result = await client.call_tool(
+            "run_code",
+            {"files": files, "entry_point": "test_solution.py"}
+        )
+    
+    import json
+    result = json.loads(mcp_result.content[0].text)
     
     print(f"  Result: {'PASSED' if result['success'] else 'FAILED'}")
     
