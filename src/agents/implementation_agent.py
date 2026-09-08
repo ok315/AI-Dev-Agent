@@ -1,6 +1,7 @@
 from src.tools.github_client import github
 from src.tools.llm_client import call_llm
-
+from mcp import Client
+from src.mcp_servers.github_server import mcp as github_mcp
 
 IMPLEMENTATION_SYSTEM_PROMPT = """You are a senior software engineer fixing a bug.
 
@@ -25,25 +26,22 @@ the JSON object. The "updated_code" value must be the full file, ready
 to replace the original file exactly as-is."""
 
 
-def generate_implementation(
+async def generate_implementation(
     plan: dict, owner: str, repo: str, branch: str,
     previous_code: str = None, test_code: str = None, failure_output: str = None
 ) -> dict:
-    """
-    Same as before, but now optionally accepts context from a
-    PREVIOUS FAILED ATTEMPT — the code that didn't work, the test
-    that caught the failure, and what error/output the test produced.
-    
-    When this context is provided, the LLM is explicitly told what
-    was tried and why it failed, so it can fix the SPECIFIC problem
-    instead of blindly generating a new attempt from scratch.
-    """
     if not plan.get("files_likely_affected"):
         raise ValueError("Plan has no files_likely_affected — nothing to implement.")
     
     file_path = plan["files_likely_affected"][0]
     
-    original_code = github.get_file_content(owner, repo, file_path, branch=branch)
+    async with Client(github_mcp) as client:
+        mcp_result = await client.call_tool(
+            "get_file_content",
+            {"owner": owner, "repo": repo, "path": file_path, "branch": branch}
+        )
+    
+    original_code = mcp_result.content[0].text
     
     prompt = (
         f"Plan:\n{plan}\n\n"
@@ -51,8 +49,6 @@ def generate_implementation(
         f"```python\n{original_code}\n```"
     )
     
-    # If this is a retry, add the failure context so the LLM knows
-    # EXACTLY what was tried and what went wrong.
     if previous_code and test_code and failure_output:
         prompt += (
             f"\n\nA PREVIOUS ATTEMPT at this fix FAILED. Here is what was tried:\n"
