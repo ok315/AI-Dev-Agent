@@ -6,12 +6,6 @@ app = FastAPI()
 graph_app = build_graph()
 
 
-# Pydantic models define the SHAPE of data we expect to receive.
-# FastAPI uses these to automatically validate incoming requests —
-# if someone sends a request missing a required field, or with the
-# wrong data type, FastAPI rejects it automatically, before our
-# code even runs.
-
 class FixBugRequest(BaseModel):
     thread_id: str
     issue_description: str
@@ -26,7 +20,7 @@ class ApproveRequest(BaseModel):
 
 
 @app.post("/fix-bug")
-def fix_bug(request: FixBugRequest):
+async def fix_bug(request: FixBugRequest):
     """
     Starts the pipeline: plan -> implement -> test -> (retry if needed).
     Blocks until it either succeeds and pauses for review, or gives up.
@@ -43,9 +37,9 @@ def fix_bug(request: FixBugRequest):
         "status": "starting", "pr_url": ""
     }
     
-    result = graph_app.invoke(initial_state, config=config)
+    result = await graph_app.ainvoke(initial_state, config=config)
     
-    state_snapshot = graph_app.get_state(config)
+    state_snapshot = await graph_app.aget_state(config)
     awaiting_review = bool(state_snapshot.next)
     
     return {
@@ -59,8 +53,9 @@ def fix_bug(request: FixBugRequest):
         "status": result.get("status")
     }
 
+
 @app.post("/approve")
-def approve(request: ApproveRequest):
+async def approve(request: ApproveRequest):
     """
     Resumes a paused pipeline run. If approved, creates the real PR.
     If rejected, just confirms the run is stopped.
@@ -70,7 +65,7 @@ def approve(request: ApproveRequest):
     if not request.approved:
         return {"thread_id": request.thread_id, "status": "rejected", "pr_url": None}
     
-    final = graph_app.invoke(None, config=config)
+    final = await graph_app.ainvoke(None, config=config)
     
     return {
         "thread_id": request.thread_id,
