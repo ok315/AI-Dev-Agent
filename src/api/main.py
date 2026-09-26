@@ -5,7 +5,6 @@ from src.graphs.dev_agent_graph import build_graph
 app = FastAPI()
 graph_app = build_graph()
 
-
 class FixBugRequest(BaseModel):
     thread_id: str
     issue_description: str

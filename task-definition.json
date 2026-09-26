@@ -1,0 +1,55 @@
+{
+  "family": "ai-dev-agent-task",
+  "networkMode": "host",
+  "executionRoleArn": "arn:aws:iam::719129114212:role/ecsTaskExecutionRole",
+  "requiresCompatibilities": ["EC2"],
+  "containerDefinitions": [
+    {
+      "name": "main",
+      "image": "719129114212.dkr.ecr.eu-north-1.amazonaws.com/ai-dev-agent:latest",
+      "essential": true,
+      "cpu": 1024,
+      "memory": 2048,
+      "privileged": true,
+      "portMappings": [
+        {
+          "containerPort": 80
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "docker-sock",
+          "containerPath": "/var/run/docker.sock",
+          "readOnly": false
+        }
+      ],
+      "environment": [
+        {
+          "name": "GROQ_API_KEY",
+          "value": "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"
+        },
+        {
+          "name": "GITHUB_TOKEN",
+          "value": "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"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/ai-dev-agent-task",
+          "awslogs-region": "eu-north-1",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ],
+  "volumes": [
+    {
+      "name": "docker-sock",
+      "host": {
+        "sourcePath": "/var/run/docker.sock"
+      }
+    }
+  ]
+}
